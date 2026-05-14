@@ -28,13 +28,14 @@ class SpLLMEngine:
             process.start()
             self.ps.append(process)
             self.events.append(event)
-        self.model_runner = ModelRunner(config, 0, self.events)
+        self.model_runner = ModelRunner(config=config, device=0, rank=0, event=self.events)
         # 整理一下 Config 送进 draft 的 runner 里面
         draft_config = copy.copy(config)
-        draft_config.model = draft_config.model_draft
+        draft_config.model = draft_config.draft_model
+        draft_config.hf_config = draft_config.draft_hf_config
         # modelrunner 目前只是用 rank 编号给相同的 GPU 所以 直接加上 config.tensor_parallel_size 即可
         # 其实目前这个实验也不涉及 TP 这样写是为了维护方便吧
-        self.draft_model_runner = ModelRunner(draft_config, 0+config.tensor_parallel_size, self.events)
+        self.draft_model_runner = ModelRunner(config=draft_config,device=config.tensor_parallel_size, rank=0, event=self.events)
 
         self.tokenizer = AutoTokenizer.from_pretrained(config.model, use_fast=True)
         # 默认分词表是完全一致，EOS也是一致的
@@ -42,6 +43,10 @@ class SpLLMEngine:
         config.eos = self.tokenizer.eos_token_id
 
         # 两个模型共同控制一个 scheduler，控制一份 sequence 所以只能有一个
+        # 但是控制的block 块的数量必须一致，
+        # 因为 scheduler 只有一个；里面 sequence 对应的块的列表只有一个，
+        # 假设块的列表指向了块的数量多的，那小的就报错了
+        config.num_kvcache_blocks = min (config.num_kvcache_blocks,draft_config.num_kvcache_blocks)
         self.scheduler = Scheduler(config)
         atexit.register(self.exit)
 
@@ -60,7 +65,7 @@ class SpLLMEngine:
         # 送进scheduler
         self.scheduler.add(seq)
 
-    def step(self):
+    def step_old(self):
         # scheduler 先去 schedule  这个实现中 PD 是分开的，所以一次 schedule 返回 PD 之一
         seqs, is_prefill = self.scheduler.schedule()
         # 
@@ -104,3 +109,40 @@ class SpLLMEngine:
         outputs = [outputs[seq_id] for seq_id in sorted(outputs.keys())]
         outputs = [{"text": self.tokenizer.decode(token_ids), "token_ids": token_ids} for token_ids in outputs]
         return outputs
+
+    # 总体控制投机采样的流程
+    def speculative_decoding(self):
+        # scheduler 先去 schedule  这一步两个模型都一样吧
+        seqs, is_prefill = self.scheduler.schedule()
+        
+        if is_prefill:
+        # prompt prefill
+        else:
+        # scheduler 已经为 1 token 做 may_append
+        # K=1 speculative 先跑通
+
+        num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else -len(seqs)
+        token_ids = self.model_runner.call("run", seqs, is_prefill)
+        self.scheduler.postprocess(seqs, token_ids, is_prefill)
+        outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
+        return outputs, num_tokens
+    
+    def step(self):
+        seqs, is_prefill = self.scheduler.schedule()
+        num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else -len(seqs)
+
+        if is_prefill:
+            # target prefill: 写 target KV，并采样 canonical token
+            token_ids = self.model_runner.call("run", seqs, True)
+
+            # draft prefill: 写 draft KV，但返回 token 丢掉
+            _ = self.draft_model_runner.call("run", seqs, True)
+
+            # 只有 target token 能进入 canonical Sequence
+            self.scheduler.postprocess(seqs, token_ids, True)
+        else:
+            token_ids = self.model_runner.call("run", seqs, False)
+            self.scheduler.postprocess(seqs, token_ids, False)
+
+        outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
+        return outputs, num_tokens

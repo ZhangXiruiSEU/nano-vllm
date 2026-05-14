@@ -81,3 +81,10 @@ class Sequence:
         else:
             self.token_ids = []
             self.last_token = last_state
+
+    # 有时候会需要 append 多个 token
+    def append_tokens_k(self,):
+        pass
+    # target 模型拒绝了 就需要截断了
+    def truncate_k(self,):
+        pass

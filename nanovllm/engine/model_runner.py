@@ -14,7 +14,7 @@ from nanovllm.utils.loader import load_model
 
 class ModelRunner:
 
-    def __init__(self, config: Config, rank: int, event: Event | list[Event]):
+    def __init__(self, config: Config, device:int, rank: int, event: Event | list[Event]):
         self.config = config
         hf_config = config.hf_config
         self.block_size = config.kvcache_block_size
@@ -24,7 +24,7 @@ class ModelRunner:
         self.event = event
         if self.world_size > 1 :
             dist.init_process_group("nccl", "tcp://localhost:2333", world_size=self.world_size, rank=rank)
-        torch.cuda.set_device(rank)
+        torch.cuda.set_device(device + rank)
         default_dtype = torch.get_default_dtype()
         torch.set_default_dtype(hf_config.dtype)
         torch.set_default_device("cuda")
@@ -256,3 +256,16 @@ class ModelRunner:
             block_tables=block_tables,
             outputs=outputs,
         )
+
+    # 有时候是会送进去比如 k 个 token 如验证，或者 2 个 token 如完全验证通过
+    def prepare_prefill_mini(self):
+        pass
+
+    # 让draft 模型自回归生成 k 个新 token
+    def draft_propose_k(self):
+        pass
+
+    # 让target 模型去验证 k 个新 token 能不能采用
+    def target_varify_k(self):
+        pass
+
