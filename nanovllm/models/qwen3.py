@@ -26,7 +26,7 @@ class Qwen3Attention(nn.Module):
         rope_scaling: dict | None = None,
     ) -> None:
         super().__init__()
-        tp_size = dist.get_world_size()
+        tp_size = dist.get_world_size() if dist.is_initialized() else 1
         self.total_num_heads = num_heads
         assert self.total_num_heads % tp_size == 0
         self.num_heads = self.total_num_heads // tp_size

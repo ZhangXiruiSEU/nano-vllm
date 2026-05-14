@@ -31,5 +31,6 @@ class SpConfig(Config):
     draft_tensor_parallel_size: int = 1
     verify_len:int = 4
     def __post_init__(self):
+        super(SpConfig,self).__post_init__()
         # 如果父类有 post_init 记得 super().__post_init__()
-        assert self.model_draft is not "", "没给出 draft 模型的路径"
+        assert self.model_draft != "", "没给出 draft 模型的路径"

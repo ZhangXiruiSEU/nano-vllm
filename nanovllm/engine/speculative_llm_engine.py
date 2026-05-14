@@ -40,6 +40,8 @@ class SpLLMEngine:
         # 默认分词表是完全一致，EOS也是一致的
         # self.tokenizer_draft = AutoTokenizer.from_pretrained(draft_config.model, use_fast=True)
         config.eos = self.tokenizer.eos_token_id
+
+        # 两个模型共同控制一个 scheduler，控制一份 sequence 所以只能有一个
         self.scheduler = Scheduler(config)
         atexit.register(self.exit)
 
@@ -50,13 +52,18 @@ class SpLLMEngine:
             p.join()
 
     def add_request(self, prompt: str | list[int], sampling_params: SamplingParams):
+        # 如果是str 的话就转换成prompt 
         if isinstance(prompt, str):
             prompt = self.tokenizer.encode(prompt)
+        # 转为我们的sequence对象
         seq = Sequence(prompt, sampling_params)
+        # 送进scheduler
         self.scheduler.add(seq)
 
     def step(self):
+        # scheduler 先去 schedule  这个实现中 PD 是分开的，所以一次 schedule 返回 PD 之一
         seqs, is_prefill = self.scheduler.schedule()
+        # 
         num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else -len(seqs)
         token_ids = self.model_runner.call("run", seqs, is_prefill)
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
