@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from transformers import AutoConfig
-
+import torch
 
 @dataclass(slots=True)
 class Config:
@@ -23,3 +23,13 @@ class Config:
         assert 1 <= self.tensor_parallel_size <= 8
         self.hf_config = AutoConfig.from_pretrained(self.model)
         self.max_model_len = min(self.max_model_len, self.hf_config.max_position_embeddings)
+
+
+@dataclass(slots=True, kw_only=True)
+class SpConfig(Config):
+    model_draft:str = ""
+    draft_tensor_parallel_size: int = 1
+    verify_len:int = 4
+    def __post_init__(self):
+        # 如果父类有 post_init 记得 super().__post_init__()
+        assert self.model_draft is not "", "没给出 draft 模型的路径"
