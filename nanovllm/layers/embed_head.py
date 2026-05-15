@@ -64,3 +64,12 @@ class ParallelLMHead(VocabParallelEmbedding):
             dist.gather(logits, all_logits, 0)
             logits = torch.cat(all_logits, -1) if self.tp_rank == 0 else None
         return logits
+    
+    # 返回所有位置的logits
+    def forward_all(self, x: torch.Tensor):
+        logits = F.linear(x, self.weight)
+        if self.tp_size > 1:
+            all_logits = [torch.empty_like(logits) for _ in range(self.tp_size)] if self.tp_rank == 0 else None
+            dist.gather(logits, all_logits, 0)
+            logits = torch.cat(all_logits, -1) if self.tp_rank == 0 else None
+        return logits

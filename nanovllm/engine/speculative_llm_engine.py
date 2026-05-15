@@ -48,6 +48,8 @@ class SpLLMEngine:
         # 假设块的列表指向了块的数量多的，那小的就报错了
         config.num_kvcache_blocks = min (config.num_kvcache_blocks,draft_config.num_kvcache_blocks)
         self.scheduler = Scheduler(config)
+
+        self.num_spec_tokens = config.num_spec_tokens
         atexit.register(self.exit)
 
     def exit(self):
@@ -129,7 +131,7 @@ class SpLLMEngine:
     
     def step(self):
         seqs, is_prefill = self.scheduler.schedule()
-        num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else -len(seqs)
+
 
         if is_prefill:
             # target prefill: 写 target KV，并采样 canonical token
@@ -141,8 +143,64 @@ class SpLLMEngine:
             # 只有 target token 能进入 canonical Sequence
             self.scheduler.postprocess(seqs, token_ids, True)
         else:
+            """
+            1.
+            draft 采样 4 个，以及其概率   可以走原来的 step的路线 自回归的逐个生成 4 个
+            2. 
+            target 验证 4 个 ，一次性输入，主要借用的prefill 路线，得到这四个的概率，实际上能额外得到一个 5 个概率
+            3.
+            概率对比，回退 i 个  0-4 ，然后 target 给出下一个token，检验是不是满足退出条件
+            不用退出的话就，回到 1， 如此循环
+
+            """
             token_ids = self.model_runner.call("run", seqs, False)
             self.scheduler.postprocess(seqs, token_ids, False)
 
+        if is_prefill: # 计算 token 还是按照原来的
+            num_tokens = sum(seq.num_scheduled_tokens for seq in seqs)  
+        else: # 这个要改  因为我这个一个step 一个 seq 至少是 1-5 个 token  （5 个：验证四个全通过额外赠送一个）
+            num_spec_tokens = self.num_spec_tokens
+            num_tokens = -len(seqs)
         outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
         return outputs, num_tokens
+    
+    def _draft_propose(self, seqs):# 第一版就是一个 seq，简单起见
+        assert len(seqs) == 1
+        seq = seqs[0]
+
+        base_token_ids = list(seq.token_ids)
+        base_num_tokens = seq.num_tokens
+        base_num_cached_tokens = seq.num_cached_tokens
+        base_num_scheduled_tokens = seq.num_scheduled_tokens
+        base_last_token = seq.last_token
+
+        draft_tokens = []
+        draft_probs = []
+
+        for _ in range(self.num_spec_tokens):
+            # 为下一步 draft decode 可能跨 block 做准备
+            if not self.scheduler.block_manager.can_append(seq):
+                break
+            self.scheduler.block_manager.may_append(seq)
+            token_ids, probs = self.draft_model_runner.call("run_with_probs", seqs, False)
+
+            token_id = token_ids[0]
+            prob = probs[0]
+            draft_tokens.append(token_id)
+            draft_probs.append(prob)
+
+            # 临时推进，让 draft 下一步可以继续自回归 decode
+            seq.append_token(token_id)
+            seq.num_cached_tokens += 1
+            seq.num_scheduled_tokens = 1
+
+            
+
+        # 回滚 canonical Sequence，draft token 只是候选
+        seq.token_ids = base_token_ids
+        seq.num_tokens = base_num_tokens
+        seq.num_cached_tokens = base_num_cached_tokens
+        seq.num_scheduled_tokens = base_num_scheduled_tokens
+        seq.last_token = base_last_token
+
+        return draft_tokens, draft_probs

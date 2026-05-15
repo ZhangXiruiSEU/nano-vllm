@@ -30,7 +30,7 @@ class SpConfig(Config):
     draft_model:str = ""
     # draft_tensor_parallel_size: int = 1
     draft_hf_config: AutoConfig | None = None
-    verify_len:int = 4
+    num_spec_tokens:int = 4
     def __post_init__(self):
         super(SpConfig,self).__post_init__()
         # 如果父类有 post_init 记得 super().__post_init__()
