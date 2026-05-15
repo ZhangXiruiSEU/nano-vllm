@@ -142,7 +142,7 @@ class SpLLMEngine:
 
             # 只有 target token 能进入 canonical Sequence
             self.scheduler.postprocess(seqs, token_ids, True)
-        else:
+        
             """
             1.
             draft 采样 4 个，以及其概率   可以走原来的 step的路线 自回归的逐个生成 4 个
@@ -153,8 +153,28 @@ class SpLLMEngine:
             不用退出的话就，回到 1， 如此循环
 
             """
+        else:
+            draft_tokens, draft_probs = self._draft_propose(seqs)
+            draft_token_ids = [draft_tokens]  # 目前 _draft_propose 只支持单 seq
+
+            self._reserve_verify_slots(seqs, draft_token_ids)
+
+            target_probs, bonus_token_ids, bonus_probs = self.model_runner.call(
+                "verify",
+                seqs,
+                draft_token_ids,
+            )
+
+            print("draft_tokens", draft_token_ids)
+            print("draft_probs", [draft_probs])
+            print("target_probs", target_probs)
+            print("bonus_token_ids", bonus_token_ids)
+            print("bonus_probs", bonus_probs)
+
+            # 暂时仍然用 target 普通 decode 推进 canonical，先确认 verify 链路不炸
             token_ids = self.model_runner.call("run", seqs, False)
             self.scheduler.postprocess(seqs, token_ids, False)
+
 
         if is_prefill: # 计算 token 还是按照原来的
             num_tokens = sum(seq.num_scheduled_tokens for seq in seqs)  
@@ -203,4 +223,50 @@ class SpLLMEngine:
         seq.num_scheduled_tokens = base_num_scheduled_tokens
         seq.last_token = base_last_token
 
-        return draft_tokens, draft_probs
+        return draft_tokens, 
+
+
+    def _reserve_verify_slots(self, seqs, draft_token_ids):
+        for seq, draft_ids in zip(seqs, draft_token_ids):
+            num_verify_tokens = len(draft_ids) + 1
+            if not self.scheduler.block_manager.can_append_n(seq, num_verify_tokens):
+                raise RuntimeError("not enough KV blocks for target verify")
+            self.scheduler.block_manager.may_append_n(seq, num_verify_tokens)
+
+    import random
+    def _accept_reject(
+        self,
+        draft_token_ids: list[list[int]],
+        draft_probs: list[list[float]],
+        target_probs: list[list[float]],
+        target_resample_token_ids: list[list[int]],
+        bonus_token_ids: list[int],
+    ) -> list[list[int]]:
+        accepted_token_ids = []
+
+        for i, draft_ids in enumerate(draft_token_ids):
+            seq_accepted = []
+
+            for j, draft_token_id in enumerate(draft_ids):
+                q = draft_probs[i][j]      # draft prob
+                p = target_probs[i][j]     # target prob
+
+                if q <= 0:
+                    accept_prob = 1.0
+                else:
+                    accept_prob = min(1.0, p / q)
+
+                if random.random() <= accept_prob:
+                    seq_accepted.append(draft_token_id)
+                else:
+                    # 简化版：拒绝后直接用 target 在该位置采样出的 token
+                    seq_accepted.append(target_resample_token_ids[i][j])
+                    break
+
+            # draft 全接受，追加 bonus token
+            if len(seq_accepted) == len(draft_ids):
+                seq_accepted.append(bonus_token_ids[i])
+
+            accepted_token_ids.append(seq_accepted)
+
+        return accepted_token_ids
