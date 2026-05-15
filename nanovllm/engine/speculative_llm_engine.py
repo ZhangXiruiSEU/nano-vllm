@@ -10,7 +10,8 @@ from nanovllm.sampling_params import SamplingParams
 from nanovllm.engine.sequence import Sequence
 from nanovllm.engine.scheduler import Scheduler
 from nanovllm.engine.model_runner import ModelRunner
-
+from nanovllm.engine.sequence import Sequence, SequenceStatus
+import torch
 import copy
 class SpLLMEngine:
 
@@ -55,6 +56,8 @@ class SpLLMEngine:
     def exit(self):
         self.model_runner.call("exit")
         del self.model_runner
+        self.draft_model_runner.call("exit")
+        del self.draft_model_runner
         for p in self.ps:
             p.join()
 
@@ -112,160 +115,216 @@ class SpLLMEngine:
         outputs = [{"text": self.tokenizer.decode(token_ids), "token_ids": token_ids} for token_ids in outputs]
         return outputs
 
-    # 总体控制投机采样的流程
-    def speculative_decoding(self):
-        # scheduler 先去 schedule  这一步两个模型都一样吧
-        seqs, is_prefill = self.scheduler.schedule()
-        
-        if is_prefill:
-        # prompt prefill
-        else:
-        # scheduler 已经为 1 token 做 may_append
-        # K=1 speculative 先跑通
-
-        num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else -len(seqs)
-        token_ids = self.model_runner.call("run", seqs, is_prefill)
-        self.scheduler.postprocess(seqs, token_ids, is_prefill)
-        outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
-        return outputs, num_tokens
-    
+    # # 总体控制投机采样的流程
     def step(self):
-        seqs, is_prefill = self.scheduler.schedule()
-
+        seqs, is_prefill = self.scheduler.schedule(self.num_spec_tokens + 1)
 
         if is_prefill:
-            # target prefill: 写 target KV，并采样 canonical token
-            token_ids = self.model_runner.call("run", seqs, True)
+            num_tokens = sum(seq.num_scheduled_tokens for seq in seqs)
 
-            # draft prefill: 写 draft KV，但返回 token 丢掉
+            token_ids = self.model_runner.call("run", seqs, True)
             _ = self.draft_model_runner.call("run", seqs, True)
 
-            # 只有 target token 能进入 canonical Sequence
             self.scheduler.postprocess(seqs, token_ids, True)
-        
-            """
-            1.
-            draft 采样 4 个，以及其概率   可以走原来的 step的路线 自回归的逐个生成 4 个
-            2. 
-            target 验证 4 个 ，一次性输入，主要借用的prefill 路线，得到这四个的概率，实际上能额外得到一个 5 个概率
-            3.
-            概率对比，回退 i 个  0-4 ，然后 target 给出下一个token，检验是不是满足退出条件
-            不用退出的话就，回到 1， 如此循环
 
-            """
         else:
-            draft_tokens, draft_probs = self._draft_propose(seqs)
-            draft_token_ids = [draft_tokens]  # 目前 _draft_propose 只支持单 seq
+            draft_token_ids, draft_token_probs, draft_full_probs, draft_lens = self._draft_propose(seqs)
+
+            # 第一版先要求每条 seq 都 propose 满 K 个，避免 ragged verify/stack 问题。
+            assert all(x == self.num_spec_tokens for x in draft_lens)
 
             self._reserve_verify_slots(seqs, draft_token_ids)
 
-            target_probs, bonus_token_ids, bonus_probs = self.model_runner.call(
+            target_token_probs, target_full_probs, bonus_full_probs = self.model_runner.call(
                 "verify",
                 seqs,
                 draft_token_ids,
             )
 
-            print("draft_tokens", draft_token_ids)
-            print("draft_probs", [draft_probs])
-            print("target_probs", target_probs)
-            print("bonus_token_ids", bonus_token_ids)
-            print("bonus_probs", bonus_probs)
+            # 如果 draft/target 在不同 GPU，这里先搬到 target 分布所在 device。
+            device = target_full_probs.device
+            draft_token_probs = draft_token_probs.to(device)
+            draft_full_probs = draft_full_probs.to(device)
 
-            # 暂时仍然用 target 普通 decode 推进 canonical，先确认 verify 链路不炸
-            token_ids = self.model_runner.call("run", seqs, False)
-            self.scheduler.postprocess(seqs, token_ids, False)
+            accepted_token_ids = self._accept_reject(
+                draft_token_ids,
+                draft_token_probs,
+                draft_full_probs,
+                target_token_probs,
+                target_full_probs,
+                bonus_full_probs,
+                draft_lens,
+            )
 
+            self.scheduler.postprocess_speculative(seqs, accepted_token_ids)
+            num_tokens = -sum(len(x) for x in accepted_token_ids)
 
-        if is_prefill: # 计算 token 还是按照原来的
-            num_tokens = sum(seq.num_scheduled_tokens for seq in seqs)  
-        else: # 这个要改  因为我这个一个step 一个 seq 至少是 1-5 个 token  （5 个：验证四个全通过额外赠送一个）
-            num_spec_tokens = self.num_spec_tokens
-            num_tokens = -len(seqs)
         outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
         return outputs, num_tokens
     
-    def _draft_propose(self, seqs):# 第一版就是一个 seq，简单起见
-        assert len(seqs) == 1
-        seq = seqs[0]
+    def _draft_propose(self, seqs):
+        snapshots = []
+        for seq in seqs:
+            snapshots.append((
+                list(seq.token_ids),
+                seq.num_tokens,
+                seq.num_cached_tokens,
+                seq.num_scheduled_tokens,
+                seq.last_token,
+            ))
 
-        base_token_ids = list(seq.token_ids)
-        base_num_tokens = seq.num_tokens
-        base_num_cached_tokens = seq.num_cached_tokens
-        base_num_scheduled_tokens = seq.num_scheduled_tokens
-        base_last_token = seq.last_token
+        batch_size = len(seqs)
+        draft_token_ids = [[] for _ in range(batch_size)]
+        draft_token_probs_steps = []
+        draft_full_probs_steps = []
 
-        draft_tokens = []
-        draft_probs = []
+        active = [True] * batch_size
 
         for _ in range(self.num_spec_tokens):
-            # 为下一步 draft decode 可能跨 block 做准备
-            if not self.scheduler.block_manager.can_append(seq):
+            active_indices = [i for i, flag in enumerate(active) if flag]
+            if not active_indices:
                 break
-            self.scheduler.block_manager.may_append(seq)
-            token_ids, probs = self.draft_model_runner.call("run_with_probs", seqs, False)
 
-            token_id = token_ids[0]
-            prob = probs[0]
-            draft_tokens.append(token_id)
-            draft_probs.append(prob)
+            active_seqs = [seqs[i] for i in active_indices]
 
-            # 临时推进，让 draft 下一步可以继续自回归 decode
-            seq.append_token(token_id)
-            seq.num_cached_tokens += 1
-            seq.num_scheduled_tokens = 1
+            # 每一步 decode 前，给 active seq 当前 last_token 的 KV 写入位置确保 block。
+            for i in active_indices:
+                seq = seqs[i]
+                if not self.scheduler.block_manager.can_append(seq):
+                    active[i] = False
+                    continue
+                self.scheduler.block_manager.may_append(seq)
 
-            
+            active_indices = [i for i, flag in enumerate(active) if flag]
+            if not active_indices:
+                break
 
-        # 回滚 canonical Sequence，draft token 只是候选
-        seq.token_ids = base_token_ids
-        seq.num_tokens = base_num_tokens
-        seq.num_cached_tokens = base_num_cached_tokens
-        seq.num_scheduled_tokens = base_num_scheduled_tokens
-        seq.last_token = base_last_token
+            active_seqs = [seqs[i] for i in active_indices]
 
-        return draft_tokens, 
+            token_ids, selected_probs, full_probs = self.draft_model_runner.call(
+                "run_with_probs",
+                active_seqs,
+                False,
+            )
+
+            # 对齐回原 batch 维度；inactive 的位置用 0 占位，后面靠长度/active mask 忽略。
+            step_token_probs = torch.zeros(
+                batch_size,
+                dtype=selected_probs.dtype,
+                device=selected_probs.device,
+            )
+            step_full_probs = torch.zeros(
+                batch_size,
+                full_probs.size(-1),
+                dtype=full_probs.dtype,
+                device=full_probs.device,
+            )
+
+            for local_idx, seq_idx in enumerate(active_indices):
+                token_id = token_ids[local_idx]
+                seq = seqs[seq_idx]
+
+                draft_token_ids[seq_idx].append(token_id)
+                step_token_probs[seq_idx] = selected_probs[local_idx]
+                step_full_probs[seq_idx] = full_probs[local_idx]
+
+                # 临时推进，让下一步 draft decode 基于刚采出的 token
+                seq.append_token(token_id)
+                seq.num_cached_tokens += 1
+                seq.num_scheduled_tokens = 1
+
+            draft_token_probs_steps.append(step_token_probs)
+            draft_full_probs_steps.append(step_full_probs)
+
+        # 回滚 canonical Sequence；block_table 不回滚，预留 block 留给后续 verify/commit。
+        for seq, snapshot in zip(seqs, snapshots):
+            token_ids0, num_tokens, num_cached, num_scheduled, last_token = snapshot
+            seq.token_ids = token_ids0
+            seq.num_tokens = num_tokens
+            seq.num_cached_tokens = num_cached
+            seq.num_scheduled_tokens = num_scheduled
+            seq.last_token = last_token
+
+        if draft_token_probs_steps:
+            # [B, K]
+            draft_token_probs = torch.stack(draft_token_probs_steps, dim=1)
+            # [B, K, V]
+            draft_full_probs = torch.stack(draft_full_probs_steps, dim=1)
+        else:
+            device = self.draft_model_runner.kv_cache.device
+            draft_token_probs = torch.empty((batch_size, 0), device=device)
+            draft_full_probs = torch.empty((batch_size, 0, 0), device=device)
+        draft_lens = [len(x) for x in draft_token_ids]
+        return draft_token_ids, draft_token_probs, draft_full_probs, draft_lens
+        
 
 
     def _reserve_verify_slots(self, seqs, draft_token_ids):
         for seq, draft_ids in zip(seqs, draft_token_ids):
             num_verify_tokens = len(draft_ids) + 1
-            if not self.scheduler.block_manager.can_append_n(seq, num_verify_tokens):
-                raise RuntimeError("not enough KV blocks for target verify")
-            self.scheduler.block_manager.may_append_n(seq, num_verify_tokens)
+
+            # scheduler 已经按 self.num_spec_tokens + 1 预留过。
+            # 这里仅做防御性检查，避免 prepare_verify 访问越界。
+            start = len(seq) - 1
+            end = start + num_verify_tokens
+            required_num_blocks = (end + self.scheduler.block_size - 1) // self.scheduler.block_size
+
+            if len(seq.block_table) < required_num_blocks:
+                raise RuntimeError(
+                    f"not enough KV blocks for target verify: "
+                    f"required={required_num_blocks}, actual={len(seq.block_table)}, "
+                    f"num_verify_tokens={num_verify_tokens}"
+                )
 
     import random
     def _accept_reject(
         self,
         draft_token_ids: list[list[int]],
-        draft_probs: list[list[float]],
-        target_probs: list[list[float]],
-        target_resample_token_ids: list[list[int]],
-        bonus_token_ids: list[int],
+        draft_token_probs: torch.Tensor,   # [B, K]
+        draft_full_probs: torch.Tensor,    # [B, K, V]
+        target_token_probs: torch.Tensor,  # [B, K]
+        target_full_probs: torch.Tensor,   # [B, K, V]
+        bonus_full_probs: torch.Tensor,    # [B, V]
+        draft_lens: list[int],
     ) -> list[list[int]]:
         accepted_token_ids = []
 
-        for i, draft_ids in enumerate(draft_token_ids):
+        accept_ratio = torch.clamp(
+            target_token_probs / draft_token_probs.clamp_min(1e-12),
+            max=1.0,
+        )
+        accept_mask = torch.rand_like(accept_ratio) <= accept_ratio
+        accept_mask = accept_mask.cpu().tolist()
+
+        for b, draft_ids in enumerate(draft_token_ids):
             seq_accepted = []
+            k = draft_lens[b]
+            rejected = False
 
-            for j, draft_token_id in enumerate(draft_ids):
-                q = draft_probs[i][j]      # draft prob
-                p = target_probs[i][j]     # target prob
+            for i in range(k):
+                draft_token_id = draft_ids[i]
 
-                if q <= 0:
-                    accept_prob = 1.0
-                else:
-                    accept_prob = min(1.0, p / q)
-
-                if random.random() <= accept_prob:
+                if accept_mask[b][i]:
                     seq_accepted.append(draft_token_id)
-                else:
-                    # 简化版：拒绝后直接用 target 在该位置采样出的 token
-                    seq_accepted.append(target_resample_token_ids[i][j])
-                    break
+                    continue
 
-            # draft 全接受，追加 bonus token
-            if len(seq_accepted) == len(draft_ids):
-                seq_accepted.append(bonus_token_ids[i])
+                residual = torch.clamp(
+                    target_full_probs[b, i] - draft_full_probs[b, i],
+                    min=0,
+                )
+                residual_sum = residual.sum()
+
+                if residual_sum <= 0:
+                    residual = target_full_probs[b, i]
+                else:
+                    residual = residual / residual_sum
+
+                seq_accepted.append(int(self.model_runner.sampler.sample_from_probs(residual).item()))
+                rejected = True
+                break
+
+            if not rejected:
+                seq_accepted.append(int(self.model_runner.sampler.sample_from_probs(bonus_full_probs[b]).item()))
 
             accepted_token_ids.append(seq_accepted)
 

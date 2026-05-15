@@ -189,68 +189,6 @@ class ModelRunner:
         return input_ids, positions
     
 
-    def prepare_verify(self, seqs: list[Sequence], draft_token_ids: list[list[int]]):
-        input_ids = []
-        positions = []
-        cu_seqlens_q = [0]
-        cu_seqlens_k = [0]
-        max_seqlen_q = 0
-        max_seqlen_k = 0
-        slot_mapping = []
-        verify_lens = []
-
-        for seq, draft_ids in zip(seqs, draft_token_ids):
-            # 输入 last_accepted + draft tokens
-            # logits[0] 验 draft_ids[0]，最后一个 logits 可当 bonus。
-            verify_ids = [seq.last_token] + list(draft_ids)
-            start = len(seq) - 1
-            seqlen_q = len(verify_ids)
-            end = start + seqlen_q
-            seqlen_k = end
-
-            input_ids.extend(verify_ids)
-            positions.extend(range(start, end))
-            verify_lens.append(seqlen_q)
-
-            cu_seqlens_q.append(cu_seqlens_q[-1] + seqlen_q)
-            cu_seqlens_k.append(cu_seqlens_k[-1] + seqlen_k)
-            max_seqlen_q = max(max_seqlen_q, seqlen_q)
-            max_seqlen_k = max(max_seqlen_k, seqlen_k)
-
-            start_block = start // self.block_size
-            end_block = (end + self.block_size - 1) // self.block_size
-
-            for i in range(start_block, end_block):
-                slot_start = seq.block_table[i] * self.block_size
-                if i == start_block:
-                    slot_start += start % self.block_size
-
-                if i != end_block - 1:
-                    slot_end = seq.block_table[i] * self.block_size + self.block_size
-                else:
-                    slot_end = seq.block_table[i] * self.block_size + end - i * self.block_size
-
-                slot_mapping.extend(range(slot_start, slot_end))
-
-        block_tables = self.prepare_block_tables(seqs)
-
-        input_ids = torch.tensor(input_ids, dtype=torch.int64, pin_memory=True).cuda(non_blocking=True)
-        positions = torch.tensor(positions, dtype=torch.int64, pin_memory=True).cuda(non_blocking=True)
-        cu_seqlens_q = torch.tensor(cu_seqlens_q, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
-        cu_seqlens_k = torch.tensor(cu_seqlens_k, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
-        slot_mapping = torch.tensor(slot_mapping, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
-
-        set_context(
-            True,
-            cu_seqlens_q,
-            cu_seqlens_k,
-            max_seqlen_q,
-            max_seqlen_k,
-            slot_mapping,
-            None,
-            block_tables,
-        )
-        return input_ids, positions, verify_lens
 
     def prepare_sample(self, seqs: list[Sequence]):
         temperatures = [seq.temperature for seq in seqs]
@@ -284,20 +222,21 @@ class ModelRunner:
         reset_context()
         return token_ids
     
-    def run_with_probs(self, seqs: list[Sequence], is_prefill: bool) -> tuple[list[Any]|None,list[Any]|None]:
+    def run_with_probs(self, seqs: list[Sequence], is_prefill: bool):
         input_ids, positions = self.prepare_prefill(seqs) if is_prefill else self.prepare_decode(seqs)
         temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
         logits = self.run_model(input_ids, positions, is_prefill)
-        if self.rank == 0:
-            token_ids,probs = self.sampler.forward_with_probs(logits, temperatures)  
-            token_ids = token_ids.tolist()
-            probs = probs.tolist()
-        else: 
-            token_ids,probs = None,None
-        reset_context()
-        return token_ids, probs
 
-    @torch.inference_mode()
+        if self.rank == 0:
+            token_ids, selected_probs, full_probs = self.sampler.forward_with_probs(logits, temperatures)
+            token_ids = token_ids.tolist()
+        else:
+            token_ids, selected_probs, full_probs = None, None, None
+
+        reset_context()
+        return token_ids, selected_probs, full_probs # probs 仍然是GPU Tensor
+
+    @torch.inference_mode() 
     def capture_cudagraph(self):
         config = self.config
         hf_config = config.hf_config
@@ -346,7 +285,85 @@ class ModelRunner:
     def target_varify_k(self):
         pass
 
+    def prepare_extend(
+        self,
+        seqs: list[Sequence],
+        tokens_per_seq: list[list[int]],
+        start_offsets: list[int] | None = None,
+    ):
+        input_ids = []
+        positions = []
+        cu_seqlens_q = [0]
+        cu_seqlens_k = [0]
+        max_seqlen_q = 0
+        max_seqlen_k = 0
+        slot_mapping = []
+        extend_lens = []
 
+        if start_offsets is None:
+            start_offsets = [0] * len(seqs)
+
+        for seq, token_ids, start_offset in zip(seqs, tokens_per_seq, start_offsets):
+            start = len(seq) + start_offset
+            seqlen_q = len(token_ids)
+            end = start + seqlen_q
+            seqlen_k = end
+
+            input_ids.extend(token_ids)
+            positions.extend(range(start, end))
+            extend_lens.append(seqlen_q)
+
+            cu_seqlens_q.append(cu_seqlens_q[-1] + seqlen_q)
+            cu_seqlens_k.append(cu_seqlens_k[-1] + seqlen_k)
+            max_seqlen_q = max(max_seqlen_q, seqlen_q)
+            max_seqlen_k = max(max_seqlen_k, seqlen_k)
+
+            start_block = start // self.block_size
+            end_block = (end + self.block_size - 1) // self.block_size
+
+            for i in range(start_block, end_block):
+                slot_start = seq.block_table[i] * self.block_size
+                if i == start_block:
+                    slot_start += start % self.block_size
+
+                if i != end_block - 1:
+                    slot_end = seq.block_table[i] * self.block_size + self.block_size
+                else:
+                    slot_end = seq.block_table[i] * self.block_size + end - i * self.block_size
+
+                slot_mapping.extend(range(slot_start, slot_end))
+
+        assert len(input_ids) == len(slot_mapping)
+
+        block_tables = self.prepare_block_tables(seqs)
+
+        input_ids = torch.tensor(input_ids, dtype=torch.int64, pin_memory=True).cuda(non_blocking=True)
+        positions = torch.tensor(positions, dtype=torch.int64, pin_memory=True).cuda(non_blocking=True)
+        cu_seqlens_q = torch.tensor(cu_seqlens_q, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
+        cu_seqlens_k = torch.tensor(cu_seqlens_k, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
+        slot_mapping = torch.tensor(slot_mapping, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
+
+        set_context(
+            True,
+            cu_seqlens_q,
+            cu_seqlens_k,
+            max_seqlen_q,
+            max_seqlen_k,
+            slot_mapping,
+            None,
+            block_tables,
+        )
+        return input_ids, positions, extend_lens
+    
+    def prepare_verify(self, seqs: list[Sequence], draft_token_ids: list[list[int]]):
+        tokens_per_seq = [
+            [seq.last_token] + list(draft_ids)
+            for seq, draft_ids in zip(seqs, draft_token_ids)
+        ]
+        start_offsets = [-1] * len(seqs)
+        return self.prepare_extend(seqs, tokens_per_seq, start_offsets)
+    
+    @torch.inference_mode()
     def verify(self, seqs: list[Sequence], draft_token_ids: list[list[int]]):
         input_ids, positions, verify_lens = self.prepare_verify(seqs, draft_token_ids)
         temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
@@ -356,9 +373,10 @@ class ModelRunner:
 
         if self.rank != 0:
             reset_context()
-            return None
+            return None, None, None
 
-        target_probs = []
+        target_token_probs = []
+        target_full_probs = []
         bonus_logits = []
         offset = 0
 
@@ -367,22 +385,48 @@ class ModelRunner:
             seq_logits = logits[offset: offset + q_len]
             offset += q_len
 
-            # seq_logits[:-1] 对应：
-            # logits at last_token -> P(draft_1)
-            # logits at draft_1    -> P(draft_2)
-            # ...
-            scaled_logits = seq_logits[:-1].float().div(temperatures[i])
-            probs = torch.softmax(scaled_logits, dim=-1)
+            # verify 输入是 [last_token] + draft_ids
+            # seq_logits[:-1] 对应每个 draft token 的预测分布
+            verify_logits = seq_logits[:-1].float().div(temperatures[i])
+            probs = torch.softmax(verify_logits, dim=-1)  # [K, V]
 
             draft_tensor = torch.tensor(draft_ids, dtype=torch.long, device=probs.device)
-            selected_probs = probs.gather(1, draft_tensor.unsqueeze(1)).squeeze(1)
-            target_probs.append(selected_probs.tolist())
+            selected_probs = probs.gather(1, draft_tensor.unsqueeze(1)).squeeze(1)  # [K]
 
-            # seq_logits[-1] 是全接受时的 bonus 分布。
+            target_token_probs.append(selected_probs)
+            target_full_probs.append(probs)
+
+            # seq_logits[-1] 是全接受时 bonus token 的预测分布
             bonus_logits.append(seq_logits[-1])
 
-        bonus_logits = torch.stack(bonus_logits, dim=0)
-        bonus_token_ids, bonus_probs = self.sampler.forward_with_probs(bonus_logits, temperatures)
+        target_token_probs = torch.stack(target_token_probs, dim=0)  # [B, K]
+        target_full_probs = torch.stack(target_full_probs, dim=0)    # [B, K, V]
+
+        bonus_logits = torch.stack(bonus_logits, dim=0).float()
+        bonus_logits = bonus_logits.div(temperatures.unsqueeze(dim=1))
+        bonus_full_probs = torch.softmax(bonus_logits, dim=-1)       # [B, V]
 
         reset_context()
-        return target_probs, bonus_token_ids.tolist(), bonus_probs.tolist()
+        return target_token_probs, target_full_probs, bonus_full_probs
+
+        '''  draft:
+            draft_token_ids
+            draft_token_probs  [B, K]
+            draft_full_probs   [B, K, V]
+
+        target:
+            target_token_probs [B, K]
+            target_full_probs  [B, K, V]
+            bonus_full_probs   [B, V]
+        '''
+
+
+    @torch.inference_mode()
+    def extend_kv(self, seqs, tokens_per_seq, start_offsets=None):
+        input_ids, positions, _ = self.prepare_extend(
+            seqs,
+            tokens_per_seq,
+            start_offsets,
+        )
+        self.model(input_ids, positions)
+        reset_context()

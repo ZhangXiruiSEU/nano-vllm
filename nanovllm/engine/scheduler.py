@@ -22,7 +22,7 @@ class Scheduler:
     def add(self, seq: Sequence):
         self.waiting.append(seq)
 
-    def schedule(self) -> tuple[list[Sequence], bool]:
+    def schedule_old(self) -> tuple[list[Sequence], bool]:
         scheduled_seqs = []
         num_batched_tokens = 0
 
@@ -92,18 +92,94 @@ class Scheduler:
                 self.running.remove(seq)
 
     # 投机采样的 后处理
-    def sp_postprocess(self, seqs: list[Sequence], token_ids: list[int], is_prefill: bool):
-        """
-        
-        """
-        for seq, token_id in zip(seqs, token_ids):
+    def postprocess_speculative(self, seqs, accepted_token_ids):
+        for seq, token_ids in zip(seqs, accepted_token_ids):
+            remaining = seq.max_tokens - seq.num_completion_tokens
+            token_ids = token_ids[:remaining]
+
+            if not seq.ignore_eos and self.eos in token_ids:
+                eos_idx = token_ids.index(self.eos)
+                token_ids = token_ids[:eos_idx + 1]
+
+            for token_id in token_ids:
+                seq.append_token(int(token_id))
+
+            accepted_len = len(token_ids)
+
+            # 只 hash/commit accepted tokens，不提交 rejected suffix
+            seq.num_scheduled_tokens = accepted_len
             self.block_manager.hash_blocks(seq)
-            seq.num_cached_tokens += seq.num_scheduled_tokens
+            seq.num_cached_tokens += accepted_len
             seq.num_scheduled_tokens = 0
-            if is_prefill and seq.num_cached_tokens < seq.num_tokens:
-                continue
-            seq.append_token(token_id)
-            if (not seq.ignore_eos and token_id == self.eos) or seq.num_completion_tokens == seq.max_tokens:
+
+            if (
+                accepted_len > 0
+                and (
+                    (not seq.ignore_eos and token_ids[-1] == self.eos)
+                    or seq.num_completion_tokens == seq.max_tokens
+                )
+            ):
                 seq.status = SequenceStatus.FINISHED
                 self.block_manager.deallocate(seq)
                 self.running.remove(seq)
+
+
+
+    def schedule(self, num_lookahead_tokens: int = 1) -> tuple[list[Sequence], bool]:
+        scheduled_seqs = []
+        num_batched_tokens = 0
+
+        # prefill
+        while self.waiting and len(scheduled_seqs) < self.max_num_seqs:
+            seq = self.waiting[0]
+            remaining = self.max_num_batched_tokens - num_batched_tokens
+            if remaining == 0:
+                break
+
+            if not seq.block_table:
+                num_cached_blocks = self.block_manager.can_allocate(seq)
+                if num_cached_blocks == -1:
+                    break
+                num_tokens = seq.num_tokens - num_cached_blocks * self.block_size
+            else:
+                num_tokens = seq.num_tokens - seq.num_cached_tokens
+
+            if remaining < num_tokens and scheduled_seqs:
+                break
+
+            if not seq.block_table:
+                self.block_manager.allocate(seq, num_cached_blocks)
+
+            seq.num_scheduled_tokens = min(num_tokens, remaining)
+            num_batched_tokens += seq.num_scheduled_tokens
+
+            if seq.num_cached_tokens + seq.num_scheduled_tokens == seq.num_tokens:
+                seq.status = SequenceStatus.RUNNING
+                self.waiting.popleft()
+                self.running.append(seq)
+
+            scheduled_seqs.append(seq)
+
+        if scheduled_seqs:
+            return scheduled_seqs, True
+
+        # decode / speculative extend
+        num_lookahead_tokens = max(1, num_lookahead_tokens)
+
+        while self.running and len(scheduled_seqs) < self.max_num_seqs:
+            seq = self.running.popleft()
+
+            while not self.block_manager.can_append_n(seq, num_lookahead_tokens):
+                if self.running:
+                    self.preempt(self.running.pop())
+                else:
+                    self.preempt(seq)
+                    break
+            else:
+                seq.num_scheduled_tokens = num_lookahead_tokens
+                seq.is_prefill = False
+                self.block_manager.may_append_n(seq, num_lookahead_tokens)
+                scheduled_seqs.append(seq)
+        assert scheduled_seqs
+        self.running.extendleft(reversed(scheduled_seqs))
+        return scheduled_seqs, False
