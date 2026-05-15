@@ -9,7 +9,7 @@ class Config:
     max_num_batched_tokens: int = 16384
     max_num_seqs: int = 512
     max_model_len: int = 4096
-    gpu_memory_utilization: float = 0.9
+    gpu_memory_utilization: float = 0.7
     tensor_parallel_size: int = 1
     enforce_eager: bool = False
     hf_config: AutoConfig | None = None
@@ -31,6 +31,8 @@ class SpConfig(Config):
     # draft_tensor_parallel_size: int = 1
     draft_hf_config: AutoConfig | None = None
     num_spec_tokens:int = 4
+    draft_gpu_memory_utilization: float = 0.9
+    draft_device_id = 0 
     def __post_init__(self):
         super(SpConfig,self).__post_init__()
         # 如果父类有 post_init 记得 super().__post_init__()

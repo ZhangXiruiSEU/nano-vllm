@@ -176,10 +176,13 @@ class ModelRunner:
         slot_mapping = []
         context_lens = []
         for seq in seqs:
+            token_pos = len(seq) - 1
+            block_idx = token_pos // self.block_size
+            block_offset = token_pos % self.block_size
             input_ids.append(seq.last_token)
-            positions.append(len(seq) - 1)
+            positions.append(token_pos)
             context_lens.append(len(seq))
-            slot_mapping.append(seq.block_table[-1] * self.block_size + seq.last_block_num_tokens  - 1)
+            slot_mapping.append(seq.block_table[block_idx] * self.block_size + block_offset)
         input_ids = torch.tensor(input_ids, dtype=torch.int64, pin_memory=True).cuda(non_blocking=True)
         positions = torch.tensor(positions, dtype=torch.int64, pin_memory=True).cuda(non_blocking=True)
         slot_mapping = torch.tensor(slot_mapping, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
@@ -235,6 +238,34 @@ class ModelRunner:
 
         reset_context()
         return token_ids, selected_probs, full_probs # probs 仍然是GPU Tensor
+
+    @torch.inference_mode()
+    def run_extend_with_probs(self, seqs, tokens_per_seq, start_offsets=None):
+        input_ids, positions, extend_lens = self.prepare_extend(
+            seqs,
+            tokens_per_seq,
+            start_offsets,
+        )
+        temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
+        hidden_states = self.model(input_ids, positions)
+        logits = self.model.compute_logits_all(hidden_states)
+
+        if self.rank != 0:
+            reset_context()
+            return None, None, None
+
+        last_logits = []
+        offset = 0
+        for extend_len in extend_lens:
+            last_logits.append(logits[offset + extend_len - 1])
+            offset += extend_len
+        last_logits = torch.stack(last_logits, dim=0)
+
+        token_ids, selected_probs, full_probs = self.sampler.forward_with_probs(last_logits, temperatures)
+        token_ids = token_ids.tolist()
+
+        reset_context()
+        return token_ids, selected_probs, full_probs
 
     @torch.inference_mode() 
     def capture_cudagraph(self):
@@ -364,7 +395,7 @@ class ModelRunner:
         return self.prepare_extend(seqs, tokens_per_seq, start_offsets)
     
     @torch.inference_mode()
-    def verify(self, seqs: list[Sequence], draft_token_ids: list[list[int]]):
+    def run_verify(self, seqs: list[Sequence], draft_token_ids: list[list[int]]):
         input_ids, positions, verify_lens = self.prepare_verify(seqs, draft_token_ids)
         temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
 

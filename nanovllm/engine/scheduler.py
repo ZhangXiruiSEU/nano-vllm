@@ -92,8 +92,9 @@ class Scheduler:
                 self.running.remove(seq)
 
     # 投机采样的 后处理
-    def postprocess_speculative(self, seqs, accepted_token_ids):
-        for seq, token_ids in zip(seqs, accepted_token_ids):
+    def postprocess_speculative(self, seqs, accepted_token_ids, target_cached_lens):
+        committed_token_ids = []
+        for seq, token_ids, target_cached_len in zip(seqs, accepted_token_ids, target_cached_lens):
             remaining = seq.max_tokens - seq.num_completion_tokens
             token_ids = token_ids[:remaining]
 
@@ -101,15 +102,20 @@ class Scheduler:
                 eos_idx = token_ids.index(self.eos)
                 token_ids = token_ids[:eos_idx + 1]
 
+            committed_token_ids.append(token_ids)
+
             for token_id in token_ids:
                 seq.append_token(int(token_id))
 
             accepted_len = len(token_ids)
+            cached_advance_len = min(target_cached_len, accepted_len)
 
-            # 只 hash/commit accepted tokens，不提交 rejected suffix
-            seq.num_scheduled_tokens = accepted_len
+            # 只提交 target KV 中真实有效的 accepted draft prefix。
+            # bonus token 或 reject 后 residual token 虽然会进入 Sequence，
+            # 但它们还没有作为 target 输入跑过 forward，下一轮 decode 才能写 KV。
+            seq.num_scheduled_tokens = cached_advance_len
             self.block_manager.hash_blocks(seq)
-            seq.num_cached_tokens += accepted_len
+            seq.num_cached_tokens += cached_advance_len
             seq.num_scheduled_tokens = 0
 
             if (
@@ -122,6 +128,7 @@ class Scheduler:
                 seq.status = SequenceStatus.FINISHED
                 self.block_manager.deallocate(seq)
                 self.running.remove(seq)
+        return committed_token_ids
 
 
 
