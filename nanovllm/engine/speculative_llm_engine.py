@@ -35,6 +35,7 @@ class SpLLMEngine:
         draft_config.model = draft_config.draft_model
         draft_config.hf_config = draft_config.draft_hf_config
         draft_config.gpu_memory_utilization = draft_config.draft_gpu_memory_utilization
+        draft_config.num_spec_tokens = 0
         # modelrunner 目前只是用 rank 编号给相同的 GPU 所以 直接加上 config.tensor_parallel_size 即可
         # 其实目前这个实验也不涉及 TP 这样写是为了维护方便吧
         self.draft_model_runner = ModelRunner(config=draft_config,device=draft_config.draft_device_id, rank=0, event=self.events)
@@ -130,9 +131,14 @@ class SpLLMEngine:
     # # 总体控制投机采样的流程
     def step(self):
         stats = self._empty_generation_stats()
-        seqs, is_prefill = self.scheduler.schedule(self.num_spec_tokens + 2)
+        step_start = perf_counter()
+        schedule_start = perf_counter()
+        seqs, is_prefill = self.scheduler.schedule(self.num_spec_tokens + 1)
+        stats["schedule_time"] += perf_counter() - schedule_start
 
         if is_prefill:
+            self._sync_cuda()
+            prefill_start = perf_counter()
             num_tokens = sum(seq.num_scheduled_tokens for seq in seqs)
             self._clear_draft_catchup(seqs)
             before_completion_lens = [seq.num_completion_tokens for seq in seqs]
@@ -141,6 +147,8 @@ class SpLLMEngine:
             _ = self.draft_model_runner.call("run", seqs, True)
 
             self.scheduler.postprocess(seqs, token_ids, True)
+            self._sync_cuda()
+            stats["prefill_time"] += perf_counter() - prefill_start
             generated_lens = [
                 seq.num_completion_tokens - before_len
                 for seq, before_len in zip(seqs, before_completion_lens)
@@ -150,26 +158,52 @@ class SpLLMEngine:
             stats["bonus_tokens"] += prefill_generated_tokens
 
         else:
+            stats["decode_steps"] += 1
+            self._sync_cuda()
+            draft_start = perf_counter()
             draft_token_ids, draft_token_probs, draft_full_probs, draft_lens = self._draft_propose(seqs)
+            self._sync_cuda()
+            stats["draft_propose_time"] += perf_counter() - draft_start
             stats["draft_proposed_tokens"] += sum(draft_lens)
 
             # 第一版先要求每条 seq 都 propose 满 K 个，避免 ragged verify/stack 问题。
             assert all(x == self.num_spec_tokens for x in draft_lens)
-
             self._check_reserved_verify_slots(seqs, draft_token_ids)
-
+            self._sync_cuda()
+            target_start = perf_counter()
             target_token_probs, target_full_probs, bonus_full_probs = self.model_runner.call(
                 "run_verify",
                 seqs,
                 draft_token_ids,
             )
+            self._sync_cuda()
+            stats["target_verify_time"] += perf_counter() - target_start
+            verify_timings = getattr(self.model_runner, "last_verify_timings", None)
+            if verify_timings is not None:
+                stats["verify_prepare_time"] += verify_timings["prepare"]
+                stats["verify_model_time"] += verify_timings["model"]
+                stats["verify_logits_time"] += verify_timings["logits"]
+                stats["verify_probs_time"] += verify_timings["probs"]
+                stats["verify_graph_steps"] += verify_timings["graph"]
 
             # 如果 draft/target 在不同 GPU，这里先搬到 target 分布所在 device。
+            self._sync_cuda()
+            transfer_start = perf_counter()
             device = target_full_probs.device
             draft_token_probs = draft_token_probs.to(device)
             draft_full_probs = draft_full_probs.to(device)
-
-            accepted_token_ids, target_cached_lens, resampled_lens, bonus_lens = self._accept_reject(
+            self._sync_cuda()
+            stats["prob_transfer_time"] += perf_counter() - transfer_start
+            self._sync_cuda()
+            accept_start = perf_counter()
+            (
+                accepted_token_ids,
+                accepted_draft_lens,
+                target_cached_advance_lens,
+                resampled_lens,
+                bonus_lens,
+                trace_entries,
+            ) = self._accept_reject(
                 draft_token_ids,
                 draft_token_probs,
                 draft_full_probs,
@@ -178,11 +212,23 @@ class SpLLMEngine:
                 bonus_full_probs,
                 draft_lens,
             )
+            stats["spec_trace"].extend(trace_entries)
+            self._sync_cuda()
+            stats["accept_reject_time"] += perf_counter() - accept_start
 
-            committed_token_ids = self.scheduler.postprocess_speculative(seqs, accepted_token_ids, target_cached_lens)
-            self._record_draft_catchup(seqs, committed_token_ids, target_cached_lens)
-            self._update_decode_stats(stats, committed_token_ids, target_cached_lens, resampled_lens, bonus_lens)
+            postprocess_start = perf_counter()
+            committed_token_ids = self.scheduler.postprocess_speculative(
+                seqs,
+                accepted_token_ids,
+                target_cached_advance_lens,
+            )
+            self._record_draft_catchup(seqs, committed_token_ids, accepted_draft_lens)
+            self._update_decode_stats(stats, committed_token_ids, accepted_draft_lens, resampled_lens, bonus_lens)
             num_tokens = -sum(len(x) for x in committed_token_ids)
+            stats["committed_decode_tokens"] += -num_tokens
+            stats["postprocess_time"] += perf_counter() - postprocess_start
+            self._sync_cuda()
+            stats["decode_time"] += perf_counter() - step_start
 
         outputs = [(seq.seq_id, seq.completion_token_ids) for seq in seqs if seq.is_finished]
         return outputs, num_tokens, stats
@@ -338,12 +384,12 @@ class SpLLMEngine:
         # 返回 draft token、draft token 概率、draft 完整分布、每条 seq 的 draft 长度。
         return draft_token_ids, draft_token_probs, draft_full_probs, draft_lens
         
-    def _record_draft_catchup(self, seqs, committed_token_ids, target_cached_lens):
-        for seq, token_ids, target_cached_len in zip(seqs, committed_token_ids, target_cached_lens):
+    def _record_draft_catchup(self, seqs, committed_token_ids, accepted_draft_lens):
+        for seq, token_ids, accepted_draft_len in zip(seqs, committed_token_ids, accepted_draft_lens):
             self.draft_catchup_tokens.pop(seq.seq_id, None)
             if seq.is_finished:
                 continue
-            if target_cached_len == self.num_spec_tokens and len(token_ids) == self.num_spec_tokens + 1:
+            if accepted_draft_len == self.num_spec_tokens and len(token_ids) == self.num_spec_tokens + 1:
                 self.draft_catchup_tokens[seq.seq_id] = [int(token_ids[self.num_spec_tokens - 1])]
 
     def _clear_draft_catchup(self, seqs):
@@ -357,28 +403,51 @@ class SpLLMEngine:
             "bonus_tokens": 0,
             "resampled_tokens": 0,
             "draft_proposed_tokens": 0,
+            "committed_decode_tokens": 0,
+            "decode_steps": 0,
+            "prefill_time": 0.0,
+            "decode_time": 0.0,
+            "schedule_time": 0.0,
+            "draft_propose_time": 0.0,
+            "target_verify_time": 0.0,
+            "verify_prepare_time": 0.0,
+            "verify_model_time": 0.0,
+            "verify_logits_time": 0.0,
+            "verify_probs_time": 0.0,
+            "verify_graph_steps": 0.0,
+            "prob_transfer_time": 0.0,
+            "accept_reject_time": 0.0,
+            "postprocess_time": 0.0,
+            "spec_trace": [],
         }
 
     def _add_generation_stats(self, total_stats, step_stats):
         for key in total_stats:
-            total_stats[key] += step_stats[key]
+            if key == "spec_trace":
+                total_stats[key].extend(step_stats[key])
+            else:
+                total_stats[key] += step_stats[key]
+
+    def _sync_cuda(self):
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
 
     def _update_decode_stats(
         self,
         stats,
         committed_token_ids,
-        target_cached_lens,
+        accepted_draft_lens,
         resampled_lens,
         bonus_lens,
     ):
-        for token_ids, target_cached_len, resampled_len, bonus_len in zip(
+        for token_ids, accepted_draft_len, resampled_len, bonus_len in zip(
             committed_token_ids,
-            target_cached_lens,
+            accepted_draft_lens,
             resampled_lens,
             bonus_lens,
         ):
             committed_len = len(token_ids)
-            verified_len = min(target_cached_len, committed_len)
+            verified_len = min(accepted_draft_len, committed_len)
             stats["total_tokens"] += committed_len
             stats["verified_tokens"] += verified_len
 
@@ -417,11 +486,13 @@ class SpLLMEngine:
         target_full_probs: torch.Tensor,   # [B, K, V]
         bonus_full_probs: torch.Tensor,    # [B, V]
         draft_lens: list[int],
-    ) -> tuple[list[list[int]], list[int], list[int], list[int]]:
+    ) -> tuple[list[list[int]], list[int], list[int], list[int], list[int], list[dict]]:
         accepted_token_ids = []
-        target_cached_lens = []
+        accepted_draft_lens = []
+        target_cached_advance_lens = []
         resampled_lens = []
         bonus_lens = []
+        trace_entries = []
 
         accept_ratio = torch.clamp(
             target_token_probs / draft_token_probs.clamp_min(1e-12),
@@ -435,6 +506,10 @@ class SpLLMEngine:
             k = draft_lens[b]
             rejected = False
             num_accepted_draft_tokens = 0
+            rejected_index = None
+            rejected_token_id = None
+            resampled_token_id = None
+            bonus_token_id = None
 
             for i in range(k):
                 draft_token_id = draft_ids[i]
@@ -455,16 +530,32 @@ class SpLLMEngine:
                 else:
                     residual = residual / residual_sum
 
-                seq_accepted.append(int(self.model_runner.sampler.sample_from_probs(residual).item()))
+                rejected_index = i
+                rejected_token_id = int(draft_token_id)
+                resampled_token_id = int(self.model_runner.sampler.sample_from_probs(residual).item())
+                seq_accepted.append(resampled_token_id)
                 rejected = True
                 break
 
             if not rejected:
-                seq_accepted.append(int(self.model_runner.sampler.sample_from_probs(bonus_full_probs[b]).item()))
+                bonus_token_id = int(self.model_runner.sampler.sample_from_probs(bonus_full_probs[b]).item())
+                seq_accepted.append(bonus_token_id)
 
             accepted_token_ids.append(seq_accepted)
-            target_cached_lens.append(num_accepted_draft_tokens)
+            accepted_draft_lens.append(num_accepted_draft_tokens)
+            # Target verify runs old last_token plus the accepted draft prefix.
+            target_cached_advance_lens.append(1 + num_accepted_draft_tokens)
             resampled_lens.append(1 if rejected else 0)
             bonus_lens.append(0 if rejected else 1)
+            trace_entries.append({
+                "batch_index": b,
+                "draft_token_ids": [int(x) for x in draft_ids],
+                "accepted_draft_len": num_accepted_draft_tokens,
+                "rejected_index": rejected_index,
+                "rejected_token_id": rejected_token_id,
+                "resampled_token_id": resampled_token_id,
+                "bonus_token_id": bonus_token_id,
+                "committed_token_ids": [int(x) for x in seq_accepted],
+            })
 
-        return accepted_token_ids, target_cached_lens, resampled_lens, bonus_lens
+        return accepted_token_ids, accepted_draft_lens, target_cached_advance_lens, resampled_lens, bonus_lens, trace_entries

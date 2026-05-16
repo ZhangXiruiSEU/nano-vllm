@@ -4,16 +4,16 @@ from transformers import AutoTokenizer
 
 
 def main():
-    path_target = os.path.expanduser("~/xirui/huggingface/Qwen3-8B/")
-    path_draft = os.path.expanduser("~/xirui/huggingface/Qwen3-0.6B/")
+    path_target = os.path.expanduser("/root/autodl-tmp/Qwen3-8B/")
+    path_draft = os.path.expanduser("/root/autodl-tmp/Qwen3-0.6B/")
     tokenizer = AutoTokenizer.from_pretrained(path_target)
     tokenizer_draft = AutoTokenizer.from_pretrained(path_draft)
     # llm_target = LLM(path_target, enforce_eager=False, tensor_parallel_size=1, is_target = True)
-    spllm = SpLLM(path_target, enforce_eager=False, tensor_parallel_size=1, is_target = True, model_draft = path_draft)
+    spllm = SpLLM(path_target, enforce_eager=False, tensor_parallel_size=1, is_target = True, draft_model = path_draft)
     pass
     sampling_params = SamplingParams(temperature=0.6, max_tokens=256)
     prompts = [
-        "hello",
+        "introduce yourself",
         
     ]
     prompts = [
@@ -25,7 +25,7 @@ def main():
         for prompt in prompts
     ]
     #logits = llm_target.model_runner.run_verify()
-    outputs = llm_target.generate(prompts, sampling_params)
+    outputs = spllm.generate(prompts, sampling_params)
 
     for prompt, output in zip(prompts, outputs):
         print("\n")

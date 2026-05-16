@@ -1,6 +1,7 @@
 import pickle
 import torch
 import torch.distributed as dist
+from time import perf_counter
 from multiprocessing.synchronize import Event
 from multiprocessing.shared_memory import SharedMemory
 
@@ -33,8 +34,12 @@ class ModelRunner:
         self.sampler = Sampler()
         self.warmup_model()
         self.allocate_kv_cache()
+        print(config.model, config.gpu_memory_utilization, config.num_kvcache_blocks)
+        print(self.kv_cache.numel() * self.kv_cache.element_size() / 1024**3, "GB")
         if not self.enforce_eager:
             self.capture_cudagraph()
+            if self.config.num_spec_tokens > 0:
+                self.capture_verify_cudagraph()
         torch.set_default_device("cpu")
         torch.set_default_dtype(default_dtype)
 
@@ -55,6 +60,8 @@ class ModelRunner:
                 self.shm.unlink()
         if not self.enforce_eager:
             del self.graphs, self.graph_pool
+            if hasattr(self, "verify_graphs"):
+                del self.verify_graphs
         torch.cuda.synchronize()
         if self.world_size > 1:
             dist.destroy_process_group()
@@ -304,6 +311,100 @@ class ModelRunner:
             outputs=outputs,
         )
 
+    @torch.inference_mode()
+    def capture_verify_cudagraph(self):
+        config = self.config
+        hf_config = config.hf_config
+        verify_len = config.num_spec_tokens + 1
+        if verify_len <= 1:
+            return
+
+        # First version: capture only batch size 1 and keep eager fallback for other sizes.
+        max_bs = 1
+        max_num_blocks = (config.max_model_len + verify_len + self.block_size - 1) // self.block_size
+        max_seqlen_k = config.max_model_len + verify_len
+        input_ids = torch.zeros(max_bs * verify_len, dtype=torch.int64)
+        positions = torch.zeros(max_bs * verify_len, dtype=torch.int64)
+        slot_mapping = torch.zeros(max_bs * verify_len, dtype=torch.int32)
+        cu_seqlens_q = torch.arange(0, (max_bs + 1) * verify_len, verify_len, dtype=torch.int32)
+        cu_seqlens_k = torch.arange(0, (max_bs + 1) * verify_len, verify_len, dtype=torch.int32)
+        block_tables = torch.zeros(max_bs, max_num_blocks, dtype=torch.int32)
+        outputs = torch.zeros(max_bs * verify_len, hf_config.hidden_size)
+        self.verify_graph_bs = [1]
+        self.verify_graphs = {}
+
+        for bs in reversed(self.verify_graph_bs):
+            n = bs * verify_len
+            graph = torch.cuda.CUDAGraph()
+            set_context(
+                True,
+                cu_seqlens_q[:bs + 1],
+                cu_seqlens_k[:bs + 1],
+                verify_len,
+                max_seqlen_k,
+                slot_mapping[:n],
+                None,
+                block_tables[:bs],
+            )
+            outputs[:n] = self.model(input_ids[:n], positions[:n])
+            with torch.cuda.graph(graph, self.graph_pool):
+                outputs[:n] = self.model(input_ids[:n], positions[:n])
+            self.verify_graphs[bs] = graph
+            torch.cuda.synchronize()
+            reset_context()
+
+        self.verify_graph_vars = dict(
+            input_ids=input_ids,
+            positions=positions,
+            slot_mapping=slot_mapping,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            block_tables=block_tables,
+            outputs=outputs,
+            verify_len=verify_len,
+            max_seqlen_k=max_seqlen_k,
+        )
+
+    @torch.inference_mode()
+    def run_verify_model_graph(self, input_ids: torch.Tensor, positions: torch.Tensor, bs: int):
+        if not hasattr(self, "verify_graphs") or bs not in self.verify_graphs:
+            return None
+        graph_vars = self.verify_graph_vars
+        verify_len = graph_vars["verify_len"]
+        if input_ids.numel() != bs * verify_len:
+            return None
+
+        context = get_context()
+        if context.block_tables is None:
+            return None
+        if context.block_tables.size(1) > graph_vars["block_tables"].size(1):
+            return None
+        if context.max_seqlen_k > graph_vars["max_seqlen_k"]:
+            return None
+
+        n = bs * verify_len
+        graph_vars["input_ids"][:n] = input_ids
+        graph_vars["positions"][:n] = positions
+        graph_vars["slot_mapping"].fill_(-1)
+        graph_vars["slot_mapping"][:n] = context.slot_mapping
+        graph_vars["cu_seqlens_q"][:bs + 1] = context.cu_seqlens_q
+        graph_vars["cu_seqlens_k"][:bs + 1] = context.cu_seqlens_k
+        graph_vars["block_tables"].zero_()
+        graph_vars["block_tables"][:bs, :context.block_tables.size(1)] = context.block_tables
+
+        set_context(
+            True,
+            graph_vars["cu_seqlens_q"][:bs + 1],
+            graph_vars["cu_seqlens_k"][:bs + 1],
+            verify_len,
+            graph_vars["max_seqlen_k"],
+            graph_vars["slot_mapping"][:n],
+            None,
+            graph_vars["block_tables"][:bs],
+        )
+        self.verify_graphs[bs].replay()
+        return graph_vars["outputs"][:n]
+
     # 有时候是会送进去比如 k 个 token 如验证，或者 2 个 token 如完全验证通过
     def prepare_prefill_mini(self):
         pass
@@ -396,16 +497,40 @@ class ModelRunner:
     
     @torch.inference_mode()
     def run_verify(self, seqs: list[Sequence], draft_token_ids: list[list[int]]):
+        timings = {
+            "prepare": 0.0,
+            "model": 0.0,
+            "logits": 0.0,
+            "probs": 0.0,
+            "graph": 0.0,
+        }
+        torch.cuda.synchronize()
+        t = perf_counter()
         input_ids, positions, verify_lens = self.prepare_verify(seqs, draft_token_ids)
         temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
+        torch.cuda.synchronize()
+        timings["prepare"] = perf_counter() - t
 
-        hidden_states = self.model(input_ids, positions)
+        t = perf_counter()
+        hidden_states = None
+        if not self.enforce_eager and all(x == self.config.num_spec_tokens + 1 for x in verify_lens):
+            hidden_states = self.run_verify_model_graph(input_ids, positions, len(seqs))
+            timings["graph"] = 1.0 if hidden_states is not None else 0.0
+        if hidden_states is None:
+            hidden_states = self.model(input_ids, positions)
+        torch.cuda.synchronize()
+        timings["model"] = perf_counter() - t
+
+        t = perf_counter()
         logits = self.model.compute_logits_all(hidden_states)
+        torch.cuda.synchronize()
+        timings["logits"] = perf_counter() - t
 
         if self.rank != 0:
             reset_context()
             return None, None, None
 
+        t = perf_counter()
         target_token_probs = []
         target_full_probs = []
         bonus_logits = []
@@ -436,6 +561,9 @@ class ModelRunner:
         bonus_logits = torch.stack(bonus_logits, dim=0).float()
         bonus_logits = bonus_logits.div(temperatures.unsqueeze(dim=1))
         bonus_full_probs = torch.softmax(bonus_logits, dim=-1)       # [B, V]
+        torch.cuda.synchronize()
+        timings["probs"] = perf_counter() - t
+        self.last_verify_timings = timings
 
         reset_context()
         return target_token_probs, target_full_probs, bonus_full_probs

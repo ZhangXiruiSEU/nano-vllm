@@ -1,0 +1,2577 @@
+{
+  "model_target": "/root/autodl-tmp/Qwen3-8B/",
+  "model_draft": "/root/autodl-tmp/Qwen3-0.6B/",
+  "prompt_text": "introduce yourself",
+  "prompt": "<|im_start|>user\nintroduce yourself<|im_end|>\n<|im_start|>assistant\n",
+  "sampling_params": {
+    "temperature": 0.6,
+    "max_tokens": 256
+  },
+  "gpu_memory_utilization": 0.68,
+  "draft_gpu_memory_utilization": 0.9,
+  "num_spec_tokens": 4,
+  "init_s": 92.63524314016104,
+  "generate_wall_s": 4.378758130595088,
+  "output_tokens": 256,
+  "output_wall_tok_s": 58.46406500767576,
+  "spec_decode_tok_s": 74.64995759715165,
+  "acceptance": 0.5119047619047619,
+  "avg_committed_per_step": 3.0357142857142856,
+  "stats": {
+    "total_tokens": 256,
+    "verified_tokens": 172,
+    "bonus_tokens": 28,
+    "resampled_tokens": 56,
+    "draft_proposed_tokens": 336,
+    "committed_decode_tokens": 255,
+    "decode_steps": 84,
+    "prefill_time": 0.9570903163403273,
+    "decode_time": 3.4159429986029863,
+    "schedule_time": 0.0004800856113433838,
+    "draft_propose_time": 1.7322675231844187,
+    "target_verify_time": 1.5154187269508839,
+    "verify_prepare_time": 0.011682488024234772,
+    "verify_model_time": 1.341514939442277,
+    "verify_logits_time": 0.11101033538579941,
+    "verify_probs_time": 0.04794985242187977,
+    "verify_graph_steps": 84.0,
+    "prob_transfer_time": 0.0013500787317752838,
+    "accept_reject_time": 0.16077567636966705,
+    "postprocess_time": 0.0014042500406503677,
+    "spec_trace": [
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          198,
+          32313,
+          11,
+          279
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 1196,
+        "committed_token_ids": [
+          198,
+          32313,
+          11,
+          279,
+          1196
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          6801,
+          752,
+          311,
+          19131
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 6801,
+        "resampled_token_id": 4588,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          4588
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          752,
+          311,
+          19131,
+          7037
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 13,
+        "committed_token_ids": [
+          752,
+          311,
+          19131,
+          7037,
+          13
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          358,
+          1184,
+          311,
+          387
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 387,
+        "resampled_token_id": 3410,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          358,
+          1184,
+          311,
+          3410
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          264,
+          11657,
+          323,
+          63594
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 11657,
+        "resampled_token_id": 2797,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          264,
+          2797
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          323,
+          11657,
+          2033,
+          13
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 2033,
+        "resampled_token_id": 16800,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          323,
+          11657,
+          16800
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          13,
+          358,
+          1265,
+          6286
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 358,
+        "resampled_token_id": 6771,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          13,
+          6771
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          752,
+          1191,
+          448,
+          847
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 829,
+        "committed_token_ids": [
+          752,
+          1191,
+          448,
+          847,
+          829
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          13,
+          358,
+          1265,
+          387
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 13,
+        "resampled_token_id": 11,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          11
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          1221,
+          6286,
+          847,
+          3476
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 1221,
+        "resampled_token_id": 1207,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          1207
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          16948,
+          11,
+          323,
+          1221
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 1221,
+        "resampled_token_id": 6286,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          16948,
+          11,
+          323,
+          6286
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          429,
+          358,
+          2776,
+          264
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 429,
+        "resampled_token_id": 847,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          847
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          3476,
+          438,
+          264,
+          3460
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 4128,
+        "committed_token_ids": [
+          3476,
+          438,
+          264,
+          3460,
+          4128
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          1614,
+          13,
+          358,
+          1265
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 11167,
+        "committed_token_ids": [
+          1614,
+          13,
+          358,
+          1265,
+          11167
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          847,
+          16928,
+          11,
+          1075
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 35764,
+        "committed_token_ids": [
+          847,
+          16928,
+          11,
+          1075,
+          35764
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          4755,
+          11,
+          23163,
+          1467
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 23163,
+        "resampled_token_id": 6825,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          4755,
+          11,
+          6825
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          2213,
+          11,
+          323,
+          8241
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 8241,
+        "resampled_token_id": 45827,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          2213,
+          11,
+          323,
+          45827
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          448,
+          5257,
+          9079,
+          13
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 1084,
+        "committed_token_ids": [
+          448,
+          5257,
+          9079,
+          13,
+          1084
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          594,
+          2989,
+          311,
+          2506
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 2506,
+        "resampled_token_id": 45932,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          594,
+          2989,
+          311,
+          45932
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          429,
+          358,
+          2776,
+          1588
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 429,
+        "resampled_token_id": 847,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          847
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          5795,
+          311,
+          1492,
+          3847
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 5795,
+        "resampled_token_id": 5726,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          5726
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          311,
+          3535,
+          323,
+          5889
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 5889,
+        "resampled_token_id": 6923,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          311,
+          3535,
+          323,
+          6923
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          1467,
+          11,
+          323,
+          7196
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 11,
+        "resampled_token_id": 304,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          1467,
+          304
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          2155,
+          15459,
+          13,
+          358
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 2155,
+        "resampled_token_id": 5248,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          5248
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          15459,
+          13,
+          358,
+          1265
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 1083,
+        "committed_token_ids": [
+          15459,
+          13,
+          358,
+          1265,
+          1083
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          6286,
+          847,
+          15155,
+          311
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 15155,
+        "resampled_token_id": 4862,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          6286,
+          847,
+          4862
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          821,
+          323,
+          1246,
+          358
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 323,
+        "resampled_token_id": 705,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          821,
+          705
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          311,
+          220,
+          17,
+          15
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 17,
+        "committed_token_ids": [
+          311,
+          220,
+          17,
+          15,
+          17
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          19,
+          11,
+          9027,
+          847
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 9027,
+        "resampled_token_id": 892,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          19,
+          11,
+          892
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          4933,
+          847,
+          15817,
+          6540
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 15817,
+        "resampled_token_id": 6540,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          4933,
+          847,
+          6540
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          323,
+          10515,
+          2897,
+          13
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 323,
+        "resampled_token_id": 374,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          374
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          1482,
+          13,
+          17375,
+          11
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 1482,
+        "resampled_token_id": 705,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          705
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          311,
+          429,
+          882,
+          13
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 311,
+        "resampled_token_id": 4686,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          4686
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          18413,
+          13,
+          55378,
+          279
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 55378,
+        "resampled_token_id": 358,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          18413,
+          13,
+          358
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          1184,
+          311,
+          2506,
+          279
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 2506,
+        "resampled_token_id": 1281,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          1184,
+          311,
+          1281
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          2704,
+          279,
+          16232,
+          374
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 5486,
+        "committed_token_ids": [
+          2704,
+          279,
+          16232,
+          374,
+          5486
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          480,
+          323,
+          1787,
+          311
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 1787,
+        "resampled_token_id": 21399,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          480,
+          323,
+          21399
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          279,
+          1196,
+          311,
+          2548
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 4755,
+        "committed_token_ids": [
+          279,
+          1196,
+          311,
+          2548,
+          4755
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          13,
+          6771,
+          752,
+          1779
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 13,
+        "resampled_token_id": 476,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          476
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          50596,
+          13,
+          6771,
+          752
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 50596,
+        "resampled_token_id": 4332,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          4332
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          862,
+          3880,
+          13,
+          6771
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 862,
+        "resampled_token_id": 9079,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          9079
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          13,
+          6771,
+          752,
+          1779
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 421,
+        "committed_token_ids": [
+          13,
+          6771,
+          752,
+          1779,
+          421
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          358,
+          9761,
+          678,
+          279
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 1376,
+        "committed_token_ids": [
+          358,
+          9761,
+          678,
+          279,
+          1376
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          3501,
+          323,
+          2506,
+          432
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 323,
+        "resampled_token_id": 25,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          3501,
+          25
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          829,
+          11,
+          3476,
+          11
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 16928,
+        "committed_token_ids": [
+          829,
+          11,
+          3476,
+          11,
+          16928
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          11,
+          4862,
+          821,
+          11
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 4862,
+        "resampled_token_id": 2745,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          11,
+          2745
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          49823,
+          1824,
+          11,
+          4862
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 821,
+        "committed_token_ids": [
+          49823,
+          1824,
+          11,
+          4862,
+          821
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          11,
+          323,
+          458,
+          28688
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 458,
+        "resampled_token_id": 264,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          11,
+          323,
+          264
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          11657,
+          15316,
+          624,
+          151668
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 624,
+        "resampled_token_id": 13,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          11657,
+          15316,
+          13
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          2938,
+          1265,
+          975,
+          624
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 2938,
+        "resampled_token_id": 84194,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          84194
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          11,
+          429,
+          1265,
+          975
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 975,
+        "resampled_token_id": 3421,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          11,
+          429,
+          1265,
+          3421
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          432,
+          624,
+          151668,
+          271
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 624,
+        "resampled_token_id": 13,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          432,
+          13
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          97593,
+          11,
+          882,
+          311
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 97593,
+        "resampled_token_id": 4120,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          4120
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          311,
+          2182,
+          432,
+          678
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 3786,
+        "committed_token_ids": [
+          311,
+          2182,
+          432,
+          678,
+          3786
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          304,
+          264,
+          5810,
+          1616
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 5810,
+        "resampled_token_id": 63594,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          304,
+          264,
+          63594
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          323,
+          5810,
+          1616,
+          624
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 5810,
+        "resampled_token_id": 22570,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          323,
+          22570
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          11566,
+          624,
+          151668,
+          271
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 11566,
+        "resampled_token_id": 1616,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          1616
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          624,
+          151668,
+          271,
+          9707
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 0,
+        "committed_token_ids": [
+          624,
+          151668,
+          271,
+          9707,
+          0
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          358,
+          2776,
+          1207,
+          16948
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 11,
+        "committed_token_ids": [
+          358,
+          2776,
+          1207,
+          16948,
+          11
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          264,
+          3460,
+          4128,
+          1614
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 7881,
+        "committed_token_ids": [
+          264,
+          3460,
+          4128,
+          1614,
+          7881
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          553,
+          54364,
+          5737,
+          13
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 5737,
+        "resampled_token_id": 14817,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          553,
+          54364,
+          14817
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          13,
+          358,
+          1079,
+          16176
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 1079,
+        "resampled_token_id": 2776,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          13,
+          358,
+          2776
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          16176,
+          389,
+          12767,
+          29425
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 16176,
+        "resampled_token_id": 6188,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          6188
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          311,
+          7789,
+          448,
+          264
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 6884,
+        "committed_token_ids": [
+          311,
+          7789,
+          448,
+          264,
+          6884
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          2088,
+          315,
+          9079,
+          11
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 1741,
+        "committed_token_ids": [
+          2088,
+          315,
+          9079,
+          11,
+          1741
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          438,
+          35764,
+          4755,
+          11
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 6825,
+        "committed_token_ids": [
+          438,
+          35764,
+          4755,
+          11,
+          6825
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          2213,
+          11,
+          323,
+          10476
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 323,
+        "resampled_token_id": 10822,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          2213,
+          11,
+          10822
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          11,
+          323,
+          1496,
+          6832
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 1496,
+        "resampled_token_id": 803,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          11,
+          323,
+          803
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          13,
+          3017,
+          4862,
+          821
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 3017,
+        "resampled_token_id": 358,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          13,
+          358
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          646,
+          3535,
+          323,
+          6923
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 1467,
+        "committed_token_ids": [
+          646,
+          3535,
+          323,
+          6923,
+          1467
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          304,
+          5248,
+          15459,
+          11
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 2670,
+        "committed_token_ids": [
+          304,
+          5248,
+          15459,
+          11,
+          2670
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          6364,
+          11,
+          8453,
+          11
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 323,
+        "committed_token_ids": [
+          6364,
+          11,
+          8453,
+          11,
+          323
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          3800,
+          13,
+          3017,
+          4862
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 3800,
+        "resampled_token_id": 1657,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          1657
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          3800,
+          13,
+          3017,
+          4862
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 821,
+        "committed_token_ids": [
+          3800,
+          13,
+          3017,
+          4862,
+          821
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          5646,
+          705,
+          311,
+          220
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 5646,
+        "resampled_token_id": 374,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          374
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          705,
+          311,
+          2400,
+          438
+        ],
+        "accepted_draft_len": 2,
+        "rejected_index": 2,
+        "rejected_token_id": 2400,
+        "resampled_token_id": 220,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          705,
+          311,
+          220
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          17,
+          15,
+          17,
+          19
+        ],
+        "accepted_draft_len": 4,
+        "rejected_index": null,
+        "rejected_token_id": null,
+        "resampled_token_id": null,
+        "bonus_token_id": 11,
+        "committed_token_ids": [
+          17,
+          15,
+          17,
+          19,
+          11
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          22573,
+          358,
+          4717,
+          1482
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 22573,
+        "resampled_token_id": 773,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          773
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          358,
+          614,
+          279,
+          1429
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 614,
+        "resampled_token_id": 646,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          358,
+          646
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          3410,
+          13382,
+          323,
+          9760
+        ],
+        "accepted_draft_len": 1,
+        "rejected_index": 1,
+        "rejected_token_id": 13382,
+        "resampled_token_id": 1995,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          3410,
+          1995
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          389,
+          1482,
+          18339,
+          323
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 389,
+        "resampled_token_id": 323,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          323
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          1824,
+          429,
+          594,
+          1482
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 1824,
+        "resampled_token_id": 25709,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          25709
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          9760,
+          311,
+          429,
+          882
+        ],
+        "accepted_draft_len": 0,
+        "rejected_index": 0,
+        "rejected_token_id": 9760,
+        "resampled_token_id": 3118,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          3118
+        ]
+      },
+      {
+        "batch_index": 0,
+        "draft_token_ids": [
+          389,
+          279,
+          5535,
+          82687
+        ],
+        "accepted_draft_len": 3,
+        "rejected_index": 3,
+        "rejected_token_id": 82687,
+        "resampled_token_id": 6540,
+        "bonus_token_id": null,
+        "committed_token_ids": [
+          389,
+          279,
+          5535,
+          6540
+        ]
+      }
+    ]
+  },
+  "output_text": "<think>\nOkay, the user asked me to introduce myself. I need to provide a clear and friendly introduction. Let me start with my name, Qwen, and mention my role as a large language model. I should highlight my capabilities, like answering questions, creating content, and assisting with various tasks. It's important to emphasize my ability to understand and generate text in multiple languages. I should also mention my training data up to 2024, which shows my knowledge is up-to-date. I need to make sure the tone is approachable and invite the user to ask questions or share tasks. Let me check if I covered all the key points: name, role, capabilities, multilingual support, training data, and a friendly closing. Yep, that should cover it. Time to put it all together in a concise and engaging way.\n</think>\n\nHello! I'm Qwen, a large language model developed by Alibaba Cloud. I'm designed to assist with a wide range of tasks, such as answering questions, creating content, coding, and more. I can understand and generate text in multiple languages, including English, Chinese, and many others. My training data is up to 2024, so I can provide information and insights based on the latest",
+  "output_token_ids": [
+    151667,
+    198,
+    32313,
+    11,
+    279,
+    1196,
+    4588,
+    752,
+    311,
+    19131,
+    7037,
+    13,
+    358,
+    1184,
+    311,
+    3410,
+    264,
+    2797,
+    323,
+    11657,
+    16800,
+    13,
+    6771,
+    752,
+    1191,
+    448,
+    847,
+    829,
+    11,
+    1207,
+    16948,
+    11,
+    323,
+    6286,
+    847,
+    3476,
+    438,
+    264,
+    3460,
+    4128,
+    1614,
+    13,
+    358,
+    1265,
+    11167,
+    847,
+    16928,
+    11,
+    1075,
+    35764,
+    4755,
+    11,
+    6825,
+    2213,
+    11,
+    323,
+    45827,
+    448,
+    5257,
+    9079,
+    13,
+    1084,
+    594,
+    2989,
+    311,
+    45932,
+    847,
+    5726,
+    311,
+    3535,
+    323,
+    6923,
+    1467,
+    304,
+    5248,
+    15459,
+    13,
+    358,
+    1265,
+    1083,
+    6286,
+    847,
+    4862,
+    821,
+    705,
+    311,
+    220,
+    17,
+    15,
+    17,
+    19,
+    11,
+    892,
+    4933,
+    847,
+    6540,
+    374,
+    705,
+    4686,
+    18413,
+    13,
+    358,
+    1184,
+    311,
+    1281,
+    2704,
+    279,
+    16232,
+    374,
+    5486,
+    480,
+    323,
+    21399,
+    279,
+    1196,
+    311,
+    2548,
+    4755,
+    476,
+    4332,
+    9079,
+    13,
+    6771,
+    752,
+    1779,
+    421,
+    358,
+    9761,
+    678,
+    279,
+    1376,
+    3501,
+    25,
+    829,
+    11,
+    3476,
+    11,
+    16928,
+    11,
+    2745,
+    49823,
+    1824,
+    11,
+    4862,
+    821,
+    11,
+    323,
+    264,
+    11657,
+    15316,
+    13,
+    84194,
+    11,
+    429,
+    1265,
+    3421,
+    432,
+    13,
+    4120,
+    311,
+    2182,
+    432,
+    678,
+    3786,
+    304,
+    264,
+    63594,
+    323,
+    22570,
+    1616,
+    624,
+    151668,
+    271,
+    9707,
+    0,
+    358,
+    2776,
+    1207,
+    16948,
+    11,
+    264,
+    3460,
+    4128,
+    1614,
+    7881,
+    553,
+    54364,
+    14817,
+    13,
+    358,
+    2776,
+    6188,
+    311,
+    7789,
+    448,
+    264,
+    6884,
+    2088,
+    315,
+    9079,
+    11,
+    1741,
+    438,
+    35764,
+    4755,
+    11,
+    6825,
+    2213,
+    11,
+    10822,
+    11,
+    323,
+    803,
+    13,
+    358,
+    646,
+    3535,
+    323,
+    6923,
+    1467,
+    304,
+    5248,
+    15459,
+    11,
+    2670,
+    6364,
+    11,
+    8453,
+    11,
+    323,
+    1657,
+    3800,
+    13,
+    3017,
+    4862,
+    821,
+    374,
+    705,
+    311,
+    220,
+    17,
+    15,
+    17,
+    19,
+    11,
+    773,
+    358,
+    646,
+    3410,
+    1995,
+    323,
+    25709,
+    3118,
+    389,
+    279,
+    5535
+  ],
+  "trace_preview": [
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        198,
+        32313,
+        11,
+        279
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 1196,
+      "committed_token_ids": [
+        198,
+        32313,
+        11,
+        279,
+        1196
+      ],
+      "draft_text": [
+        "\n",
+        "Okay",
+        ",",
+        " the"
+      ],
+      "committed_text": [
+        "\n",
+        "Okay",
+        ",",
+        " the",
+        " user"
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": " user"
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        6801,
+        752,
+        311,
+        19131
+      ],
+      "accepted_draft_len": 0,
+      "rejected_index": 0,
+      "rejected_token_id": 6801,
+      "resampled_token_id": 4588,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        4588
+      ],
+      "draft_text": [
+        " wants",
+        " me",
+        " to",
+        " introduce"
+      ],
+      "committed_text": [
+        " asked"
+      ],
+      "rejected_text": " wants",
+      "resampled_text": " asked",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        752,
+        311,
+        19131,
+        7037
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 13,
+      "committed_token_ids": [
+        752,
+        311,
+        19131,
+        7037,
+        13
+      ],
+      "draft_text": [
+        " me",
+        " to",
+        " introduce",
+        " myself"
+      ],
+      "committed_text": [
+        " me",
+        " to",
+        " introduce",
+        " myself",
+        "."
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": "."
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        358,
+        1184,
+        311,
+        387
+      ],
+      "accepted_draft_len": 3,
+      "rejected_index": 3,
+      "rejected_token_id": 387,
+      "resampled_token_id": 3410,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        358,
+        1184,
+        311,
+        3410
+      ],
+      "draft_text": [
+        " I",
+        " need",
+        " to",
+        " be"
+      ],
+      "committed_text": [
+        " I",
+        " need",
+        " to",
+        " provide"
+      ],
+      "rejected_text": " be",
+      "resampled_text": " provide",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        264,
+        11657,
+        323,
+        63594
+      ],
+      "accepted_draft_len": 1,
+      "rejected_index": 1,
+      "rejected_token_id": 11657,
+      "resampled_token_id": 2797,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        264,
+        2797
+      ],
+      "draft_text": [
+        " a",
+        " friendly",
+        " and",
+        " concise"
+      ],
+      "committed_text": [
+        " a",
+        " clear"
+      ],
+      "rejected_text": " friendly",
+      "resampled_text": " clear",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        323,
+        11657,
+        2033,
+        13
+      ],
+      "accepted_draft_len": 2,
+      "rejected_index": 2,
+      "rejected_token_id": 2033,
+      "resampled_token_id": 16800,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        323,
+        11657,
+        16800
+      ],
+      "draft_text": [
+        " and",
+        " friendly",
+        " response",
+        "."
+      ],
+      "committed_text": [
+        " and",
+        " friendly",
+        " introduction"
+      ],
+      "rejected_text": " response",
+      "resampled_text": " introduction",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        13,
+        358,
+        1265,
+        6286
+      ],
+      "accepted_draft_len": 1,
+      "rejected_index": 1,
+      "rejected_token_id": 358,
+      "resampled_token_id": 6771,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        13,
+        6771
+      ],
+      "draft_text": [
+        ".",
+        " I",
+        " should",
+        " mention"
+      ],
+      "committed_text": [
+        ".",
+        " Let"
+      ],
+      "rejected_text": " I",
+      "resampled_text": " Let",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        752,
+        1191,
+        448,
+        847
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 829,
+      "committed_token_ids": [
+        752,
+        1191,
+        448,
+        847,
+        829
+      ],
+      "draft_text": [
+        " me",
+        " start",
+        " with",
+        " my"
+      ],
+      "committed_text": [
+        " me",
+        " start",
+        " with",
+        " my",
+        " name"
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": " name"
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        13,
+        358,
+        1265,
+        387
+      ],
+      "accepted_draft_len": 0,
+      "rejected_index": 0,
+      "rejected_token_id": 13,
+      "resampled_token_id": 11,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        11
+      ],
+      "draft_text": [
+        ".",
+        " I",
+        " should",
+        " be"
+      ],
+      "committed_text": [
+        ","
+      ],
+      "rejected_text": ".",
+      "resampled_text": ",",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        1221,
+        6286,
+        847,
+        3476
+      ],
+      "accepted_draft_len": 0,
+      "rejected_index": 0,
+      "rejected_token_id": 1221,
+      "resampled_token_id": 1207,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        1207
+      ],
+      "draft_text": [
+        " then",
+        " mention",
+        " my",
+        " role"
+      ],
+      "committed_text": [
+        " Q"
+      ],
+      "rejected_text": " then",
+      "resampled_text": " Q",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        16948,
+        11,
+        323,
+        1221
+      ],
+      "accepted_draft_len": 3,
+      "rejected_index": 3,
+      "rejected_token_id": 1221,
+      "resampled_token_id": 6286,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        16948,
+        11,
+        323,
+        6286
+      ],
+      "draft_text": [
+        "wen",
+        ",",
+        " and",
+        " then"
+      ],
+      "committed_text": [
+        "wen",
+        ",",
+        " and",
+        " mention"
+      ],
+      "rejected_text": " then",
+      "resampled_text": " mention",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        429,
+        358,
+        2776,
+        264
+      ],
+      "accepted_draft_len": 0,
+      "rejected_index": 0,
+      "rejected_token_id": 429,
+      "resampled_token_id": 847,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        847
+      ],
+      "draft_text": [
+        " that",
+        " I",
+        "'m",
+        " a"
+      ],
+      "committed_text": [
+        " my"
+      ],
+      "rejected_text": " that",
+      "resampled_text": " my",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        3476,
+        438,
+        264,
+        3460
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 4128,
+      "committed_token_ids": [
+        3476,
+        438,
+        264,
+        3460,
+        4128
+      ],
+      "draft_text": [
+        " role",
+        " as",
+        " a",
+        " large"
+      ],
+      "committed_text": [
+        " role",
+        " as",
+        " a",
+        " large",
+        " language"
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": " language"
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        1614,
+        13,
+        358,
+        1265
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 11167,
+      "committed_token_ids": [
+        1614,
+        13,
+        358,
+        1265,
+        11167
+      ],
+      "draft_text": [
+        " model",
+        ".",
+        " I",
+        " should"
+      ],
+      "committed_text": [
+        " model",
+        ".",
+        " I",
+        " should",
+        " highlight"
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": " highlight"
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        847,
+        16928,
+        11,
+        1075
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 35764,
+      "committed_token_ids": [
+        847,
+        16928,
+        11,
+        1075,
+        35764
+      ],
+      "draft_text": [
+        " my",
+        " capabilities",
+        ",",
+        " like"
+      ],
+      "committed_text": [
+        " my",
+        " capabilities",
+        ",",
+        " like",
+        " answering"
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": " answering"
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        4755,
+        11,
+        23163,
+        1467
+      ],
+      "accepted_draft_len": 2,
+      "rejected_index": 2,
+      "rejected_token_id": 23163,
+      "resampled_token_id": 6825,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        4755,
+        11,
+        6825
+      ],
+      "draft_text": [
+        " questions",
+        ",",
+        " generating",
+        " text"
+      ],
+      "committed_text": [
+        " questions",
+        ",",
+        " creating"
+      ],
+      "rejected_text": " generating",
+      "resampled_text": " creating",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        2213,
+        11,
+        323,
+        8241
+      ],
+      "accepted_draft_len": 3,
+      "rejected_index": 3,
+      "rejected_token_id": 8241,
+      "resampled_token_id": 45827,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        2213,
+        11,
+        323,
+        45827
+      ],
+      "draft_text": [
+        " content",
+        ",",
+        " and",
+        " providing"
+      ],
+      "committed_text": [
+        " content",
+        ",",
+        " and",
+        " assisting"
+      ],
+      "rejected_text": " providing",
+      "resampled_text": " assisting",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        448,
+        5257,
+        9079,
+        13
+      ],
+      "accepted_draft_len": 4,
+      "rejected_index": null,
+      "rejected_token_id": null,
+      "resampled_token_id": null,
+      "bonus_token_id": 1084,
+      "committed_token_ids": [
+        448,
+        5257,
+        9079,
+        13,
+        1084
+      ],
+      "draft_text": [
+        " with",
+        " various",
+        " tasks",
+        "."
+      ],
+      "committed_text": [
+        " with",
+        " various",
+        " tasks",
+        ".",
+        " It"
+      ],
+      "rejected_text": null,
+      "resampled_text": null,
+      "bonus_text": " It"
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        594,
+        2989,
+        311,
+        2506
+      ],
+      "accepted_draft_len": 3,
+      "rejected_index": 3,
+      "rejected_token_id": 2506,
+      "resampled_token_id": 45932,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        594,
+        2989,
+        311,
+        45932
+      ],
+      "draft_text": [
+        "'s",
+        " important",
+        " to",
+        " keep"
+      ],
+      "committed_text": [
+        "'s",
+        " important",
+        " to",
+        " emphasize"
+      ],
+      "rejected_text": " keep",
+      "resampled_text": " emphasize",
+      "bonus_text": null
+    },
+    {
+      "batch_index": 0,
+      "draft_token_ids": [
+        429,
+        358,
+        2776,
+        1588
+      ],
+      "accepted_draft_len": 0,
+      "rejected_index": 0,
+      "rejected_token_id": 429,
+      "resampled_token_id": 847,
+      "bonus_token_id": null,
+      "committed_token_ids": [
+        847
+      ],
+      "draft_text": [
+        " that",
+        " I",
+        "'m",
+        " here"
+      ],
+      "committed_text": [
+        " my"
+      ],
+      "rejected_text": " that",
+      "resampled_text": " my",
+      "bonus_text": null
+    }
+  ]
+}

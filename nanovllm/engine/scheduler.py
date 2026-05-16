@@ -92,9 +92,9 @@ class Scheduler:
                 self.running.remove(seq)
 
     # 投机采样的 后处理
-    def postprocess_speculative(self, seqs, accepted_token_ids, target_cached_lens):
+    def postprocess_speculative(self, seqs, accepted_token_ids, target_cached_advance_lens):
         committed_token_ids = []
-        for seq, token_ids, target_cached_len in zip(seqs, accepted_token_ids, target_cached_lens):
+        for seq, token_ids, target_cached_advance_len in zip(seqs, accepted_token_ids, target_cached_advance_lens):
             remaining = seq.max_tokens - seq.num_completion_tokens
             token_ids = token_ids[:remaining]
 
@@ -108,15 +108,16 @@ class Scheduler:
                 seq.append_token(int(token_id))
 
             accepted_len = len(token_ids)
-            cached_advance_len = min(target_cached_len, accepted_len)
+            cached_advance_len = min(target_cached_advance_len, accepted_len)
 
-            # 只提交 target KV 中真实有效的 accepted draft prefix。
-            # bonus token 或 reject 后 residual token 虽然会进入 Sequence，
-            # 但它们还没有作为 target 输入跑过 forward，下一轮 decode 才能写 KV。
+            # Advance target KV for old last_token plus the accepted draft prefix.
+            # Bonus or reject-resampled tokens enter Sequence, but were not target inputs.
             seq.num_scheduled_tokens = cached_advance_len
             self.block_manager.hash_blocks(seq)
             seq.num_cached_tokens += cached_advance_len
             seq.num_scheduled_tokens = 0
+            if not seq.is_finished:
+                assert seq.num_cached_tokens == len(seq) - 1
 
             if (
                 accepted_len > 0

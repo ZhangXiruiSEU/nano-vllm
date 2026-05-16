@@ -64,3 +64,8 @@ See `bench.py` for benchmark.
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=GeeeekExplorer/nano-vllm&type=Date)](https://www.star-history.com/#GeeeekExplorer/nano-vllm&Date)
+
+
+
+
+## 目前的状态 在 4090 上面 431  vs 112 decode
